@@ -1,0 +1,315 @@
+---
+title: "L08 Model Tuning"
+subtitle: "Foundations of Data Science with R (STAT 359)"
+author: "YOUR NAME"
+date: today
+
+format:
+  html:
+    toc: true
+    toc-depth: 4
+    embed-resources: true
+    code-fold: show
+    link-external-newwindow: true
+    
+execute:
+  warning: false
+  
+from: markdown+emoji  
+---
+
+::: {.callout-note collapse="true" icon="false"}
+## Successful science requires organization!
+
+As we increase the the number of models to train along with the number of times we will be training/fitting the models (resamples!), organization will be critical for carrying out the entire machine learning process.
+
+Thoughtful organization will help handle the increasing computational demands, streamline the analysis process, and aide in the communication of results.
+
+Thoughtful organization doesn't take one form, but we have provided a start.
+:::
+
+::: {.callout-important collapse="true"}
+## When completing your lab write-up
+
+Students must work in an R project connected to a GitHub repository for each lab. The repository should be well organized and it should have all relevant files. Within the project/repo there should be
+
+-   an appropriately named qmd file and
+-   the associated rendered html file (see canvas for naming convention);
+-   there should be multiple R scripts (appropriately named and ordered) completing the work in the labs;
+-   students should create/update README files in GitHub accordingly;
+
+Data processing and model fitting, especially model fitting, can take significant computational time. Re-running time consuming processes when rendering a document is extremely inefficient and must be avoided.
+
+This means students should practice writing these processes in scripts, saving results, and then loading them correctly when needed in their lab write-ups. It sometimes will be necessary to display code (show it, but don't run it) or even hide some code chunks when providing answers in the lab write-up.
+
+Remember to **make this document your own!** Meaning you should play with the layout and think about removing unnecessary sections or items (like this callout box block). Conversely you may end up adding sections or items. Make sure all of your solutions are clearly identified and communicated. 
+:::
+
+::: {.callout-important collapse="true"}
+## Load Package(s) & Setting a Seed
+
+Recall that it is best practice to load your packages towards the top of your document.
+
+Now that we are performing steps that involve randomness (for example data splitting and fitting random forest models) it is best practice to set a seed for the pseudo random algorithms.
+
+**Why?** Because it ensures our random steps are reproducible which has all kinds of practical benefits. Kind of mind blowing to replicate things that are supposed to be random!
+
+Students should set the seed directly before any random process and make a comment/note at the top of any R script that alerts potential users that a random process is being used.
+:::
+
+::: {.callout-tip icon="false"}
+## Github Repo Link
+
+To link to your github **repo**sitory, appropriately edit the example link below. Meaning replace `https://your-github-repo-url` with your github repo url. Suggest verifying the link works before submitting.
+
+[https://your-github-repo-url](https://your-github-repo-url)
+:::
+
+## Overview
+
+The goal for this lab is to start using resampling methods to both tune and compare models. Instead of comparing one candidate model from each model type we will now explore several candidate sub-models from each model type by tuning hyperparameters. The lab focuses on hyperparameter tuning, but this technique easily extends tuning to preprocessing techniques or tuning of structural parameters. Ultimately leading to the selection of a final/winning/best model.
+
+This lab represents the addition of the last major step using statistical/machine learning to build a predictive model. Meaning this is a lab that represents going through the entire process from start to finish.
+
+This lab covers material up to and including [13. Grid search (section 13.3)](https://www.tmwr.org/grid-search.html) from [Tidy Modeling with R](https://www.tmwr.org/).
+
+::: callout-important
+
+This lab can serve as an example of the overall statistical learning process --- much like what you will use for your final project. Your project should generally follow similar steps, although it will likely include much more data exploration, more feature engineering, and comparing more types of models.
+
+:::
+
+## Data
+
+
+Once again we will be using the `kc_house_data.csv` dataset found in the `\data` directory. The dataset contains 21,613 house sale prices (`price`) and other information for homes sold between May 2014 and May 2015 in King County, WA. While we should have some familiarity with the dataset, it would be a good idea to take a moment to review/re-read the variable definitions in `kc_house_data_codebook.txt`.
+
+## Exercise
+
+::: {.callout-note icon="false"}
+## Prediction goal
+
+Same as in previous labs, our goal is to predict home sale prices.
+:::
+
+### Task 1
+
+We have previous experience working with this data and **we can use the initial setup from L07_resampling** to get us started.
+
+A reminder of what we did:
+
+Start by reading in the  data (`kc_house_data.csv`).
+
+1. We previously determined that we should log-transform (base 10) `price`. This has not changed, so apply the log-transformation to `price` when reading in the data.
+
+2. Leave all other variables be when reading in the data. Meaning, do not re-type anything to factor. `waterfront` is already dummy coded and the others that should be ordered factors can be treated as numerical measures (reported on a numerical scale already). We could do more feature engineering, but for now we will opt to keep it relatively simple. 
+
+Typically we would also perform a quick data assurance check using `skimr::skim_without_charts()` and/or the `naniar` package  to see if there are any major issues. We're mostly checking for missing data problems, but we also look for any obvious read-in issues. We've done this in past labs and we haven't noted any issues so we should be able to proceed.
+
+Split the data into training and testing sets using stratified sampling --- choice of proportion is left to you.
+
+After splitting the data, apply V-fold cross-validation (5 folds & 3 repeats). Use stratified sampling when folding the data. 
+
+No display code is required for this task --- it should have already been completed in L07.
+
+
+### Task 2
+
+Thinking ahead, we plan to fit 3 model types: linear regression, k-nearest neighbors, and random forest. Knowing the models we plan to fit informs our preprocessing/recipes.
+
+Again, we did this in L07_resampling and can make use of the recipes created there.
+
+A reminder of what we did:
+
+::: {.callout-note collapse="true" icon="false"}
+## Recipe for standard linear and nearest neighbor
+
+- Predict the target variable with all other variables
+- Do not use `id`, `date`, or `zipcode` as predictors (might have to exclude `price` too, depends on how log-transformation was handled)
+- Log-transform `sqft_living, sqft_lot, sqft_above,  sqft_living15, sqft_lot15`
+- Turn `sqft_basement` into an indicator variable (if greater than 0 house has basement, otherwise it does not have basement),
+- Transform `lat` using a natural spline with 5 degrees of freedom
+- Filter out variables have have zero variance
+- Center and Scale all predictors
+:::
+
+::: {.callout-note collapse="true" icon="false"}
+## Recipe for random forest
+
+Trees automatically detect non-linear relationships so we don't need the natural spline step (it has been removed). Some of the other steps are not needed (such as Log-transforms, centering, scaling), but can be done since they will not meaningfully change anything. The natural spline step performs a basis expansion, which turns one column into 5 --- which is what causes the issue for the random forest algorithm.
+
+- Predict the target variable with all other variables
+- Do not use `id`, `date`, or `zipcode` as predictors (might have to exclude `price` too, depends on how log-transformation was handled)
+- Log-transform `sqft_living, sqft_lot, sqft_above, sqft_living15, sqft_lot15`
+- Turn `sqft_basement` into an indicator variable (if greater than 0 house has basement, otherwise it does not have basement),
+- Filter out variables have have zero variance
+- Center and Scale all predictors
+:::
+
+No display code necessary - this was completed in L07.
+
+Again, thinking ahead we will be tuning our tree-based models. One of those important hyperparameters we will be tuning is `mtry`, the number of randomly selected predictor variables that will be selected at each node to split on. This means we need to have a sense of how many predictor columns/variables will be available to use. How many predictor columns/variables are there in the dataset AFTER we've processed it? We will use this number later to determine appropriate values of `mtry` to explore.
+
+::: {.callout-tip icon="false"}
+## Solution
+
+YOUR SOLUTION HERE --- How many predictor columns/variables are there in the dataset AFTER we've processed it?
+
+:::
+
+### Task 3
+
+Each model type should have its own script, begin by building the workflows for training and tuning the 3 models types.
+
+When building the workflows you will need the preprocessing and model specification. Since we are tuning hyperparameters for our model types we must identify the hyperparameters we wish to tune in the model specification.
+
+1. A linear regression model with the `lm` engine. No tuning parameters.
+2.  A $k$-nearest neighbors model with the `kknn` engine (tune `neighbors`);
+3.  A random forest model with the `ranger` engine (tune `mtry` and `min_n`, set `trees = 1000`);
+
+::: {.callout-tip icon="false"}
+## Solution
+
+YOUR SOLUTION HERE --- Provide display code for the random forest model specification (don't need the others). 
+
+:::
+
+
+### Task 4
+
+Before workflows can be trained, the hyperparameter values to use must be identified. Identifying which set of hyperparameter values to use, really means identifying which versions of the model types to train (sometimes referred to as sub-models).
+
+Typically we don't have a great idea what these values should be so we try out different values. One way to do this is with a regular grid.
+
+For each model type, setup and store a regular grid with 5 levels of possible values for each hyperparameter we identified for tuning.
+
+-   The hyperparameter `min_n` has default tuning ranges that should work reasonably well (at least we will live with them), so no need to update the default.
+
+-   For `mtry`, use `update()` to change the upper limit value to the number of predictor columns.
+
+-   For `neighbors`, use `update()` to change the range of the number of neighbors from 1 to 20.
+
+::: {.callout-tip icon="false"}
+## Solution
+
+YOUR SOLUTION HERE --- Provide display code for the random forest model's parameter and grid (don't need the others). 
+
+:::
+
+### Task 6
+
+We are about to complete the tuning and model comparison step --- pick the best model. It would be a good idea to know how many models are competing and how many trainings/fittings that will need to be done. Fill in the missing values in @tbl-mod-totals.
+
+| Model Type          | Number of models | Total number of trainings |
+|---------------------|-----------------:|--------------------------:|
+| Linear regression   |                  |                           |
+| K-nearest neighbors |                  |                           |
+| Random forest       |                  |                           |
+| **Total**           |                  |                           |
+
+: Model Training Totals {#tbl-mod-totals .striped .hover}
+
+Suppose each model takes about 30 seconds to fit. How many minutes would it take to train all of these models, if fitting one after the other (meaning fit sequentially)? Describe how parallel processing could help to reduce the time needed to train all of these models.
+
+::: {.callout-tip icon="false"}
+## Solution
+
+YOUR SOLUTION HERE
+
+:::
+
+### Task 6
+
+We are now ready to tune and compare models. Knowing that we plan to compare models we need to decide on a performance metric before hand (best scientific practice). We will use RMSE which we know is calculated by default on the resamples/folds. 
+
+Use `tune_grid()` to complete the tuning process for each workflow that requires tuning. Supply your folded data and the appropriate grid of parameter values as arguments to `tune_grid()`. There are no tuning parameters for the linear model so we will use `fit_resamples()`
+
+::: callout-caution
+## WARNING: STORE THE RESULTS OF THIS CODE 
+
+You will **NOT** want to re-run this code each time you render this document. You **MUST** run model fitting in an R script and store the results as an rda file using `save()`. Suggest saving the workflow too. 
+
+You are expected to use parallel processing which will save a significant amount of time. **Report the number of cores/threads you will be using.**
+
+We also suggest using RStudio's background jobs functionality. If you run as background jobs you can report the run times, but it is not required.
+:::
+
+::: {.callout-tip icon="false"}
+## Solution
+
+YOUR SOLUTION HERE --- Provide display code for the random forest model and include the code necessary for this to be run in parallel (don't need the others). Remember to report the number of cores/threads being used. 
+
+:::
+
+
+### Task 7
+
+Time to compare sub-models. Meaning time to explore the tuning process for the different model types.
+
+We will start with a visual inspection by using `autoplot()` on the tuning results from Task 6. Set the `metric` argument of `autoplot()` to `"rmse"` --- we previously selected that as our comparison metric. If you don't set this argument, then it will produce plots for $R^2$ as well --- doesn't hurt, but it gets crowded.
+
+For the two `autoplot()`s you've produced, describe them in your own words. What happens to the RMSE as the values of the tuning parameters change? 
+
+There is no need to show code for this task.
+
+::: {.callout-tip icon="false"}
+## Solution
+
+YOUR SOLUTION HERE
+
+:::
+
+### Task 8
+
+Might be able to use the graphs in Task 7 to determine the best set of hyperparameters for each model type, but it is easier to use `select_best()` on each of the objects containing the tuning information. For each model type, what would the best hyperparameters be (remember we are using RMSE for comparisons)?
+
+::: {.callout-tip icon="false"}
+## Solution
+
+YOUR SOLUTION HERE --- There is no need to show code for this task
+
+:::
+
+Build a table that provides the mean RMSE, its standard error, and n (number of times RMSE we estimated) per model type. Which model type produced the best model? Explain how you made your choice. From the first part of the Task you should be able to identify this model's hyperparameter value(s). 
+
+::: {.callout-tip icon="false"}
+## Solution
+
+YOUR SOLUTION HERE --- There is no need to show code for this task
+
+:::
+
+
+### Task 9
+
+We can now train the winning/best model identified in the last task on the entire training data set.
+
+::: {.callout-tip icon="false"}
+## Solution
+
+YOUR SOLUTION HERE --- provide display code for fitting your final model
+
+:::
+
+
+### Task 10
+
+After fitting/training the best model in the last task, assess the model's performance on the test set using RMSE, MAE, and $R^2$. Provide an interpretation for each.
+
+::: {.callout-tip icon="false"}
+## Solution
+
+YOUR SOLUTION HERE --- no need to show code. 
+
+:::
+
+### Task 11
+
+Visualize your results by plotting the predicted observations by the observed observations. 
+
+::: {.callout-tip icon="false"}
+## Solution
+
+YOUR SOLUTION HERE --- no need to show code. 
+
+:::
