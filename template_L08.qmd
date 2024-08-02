@@ -181,13 +181,21 @@ Before workflows can be trained, the hyperparameter values to use must be identi
 
 Typically we don't have a great idea what these values should be so we try out different values. One way to do this is with a regular grid.
 
-For each model type, setup and store a regular grid with 5 levels of possible values for each hyperparameter we identified for tuning.
+
+For the random forest model:
 
 -   The hyperparameter `min_n` has default tuning ranges that should work reasonably well (at least we will live with them), so no need to update the default.
 
--   For `mtry`, use `update()` to change the upper limit value to the number of predictor columns.
+-   For `mtry`, use `update()` to change the upper limit value to roughly 70% of the number of predictor columns.
+
+- Use a regular grid with 5 levels of possible values for each hyperparameter we identified for tuning
+
+
+For the k-nearest neighbors model:
 
 -   For `neighbors`, use `update()` to change the range of the number of neighbors from 1 to 20.
+
+- Use a regular grid with 20 levels of possible values for the neighbors hyperparameter. This model is fast and there is only one tuning parameter so we can be more thorough with our grid search.
 
 ::: {.callout-tip icon="false"}
 ## Solution
@@ -266,7 +274,7 @@ Might be able to use the graphs in Task 7 to determine the best set of hyperpara
 ::: {.callout-tip icon="false"}
 ## Solution
 
-YOUR SOLUTION HERE --- There is no need to show code for this task
+YOUR SOLUTION HERE --- There is no need to show code for this task.
 
 :::
 
@@ -275,7 +283,7 @@ Build a table that provides the mean RMSE, its standard error, and n (number of 
 ::: {.callout-tip icon="false"}
 ## Solution
 
-YOUR SOLUTION HERE --- There is no need to show code for this task
+YOUR SOLUTION HERE --- There is no need to show code for this task but should display results (echo: false).
 
 :::
 
@@ -299,7 +307,7 @@ After fitting/training the best model in the last task, assess the model's perfo
 ::: {.callout-tip icon="false"}
 ## Solution
 
-YOUR SOLUTION HERE --- no need to show code. 
+YOUR SOLUTION HERE --- There is no need to show code for this task but should display results (echo: false).
 
 :::
 
@@ -310,6 +318,6 @@ Visualize your results by plotting the predicted observations by the observed ob
 ::: {.callout-tip icon="false"}
 ## Solution
 
-YOUR SOLUTION HERE --- no need to show code. 
+YOUR SOLUTION HERE --- There is no need to show code for this task but should display results (echo: false).
 
 :::
